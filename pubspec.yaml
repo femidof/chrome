@@ -1,0 +1,41 @@
+name: chrome
+description: A new Flutter project.
+
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.1.0 <4.0.0"
+
+dependencies:
+  animate_do: ^3.0.2
+  bouncing_widget: ^2.0.0
+  cached_network_image: ^3.2.3
+  cupertino_icons: ^1.0.2
+  easy_image_viewer: ^1.2.1
+  flutter:
+    sdk: flutter
+  html: ^0.15.4
+  http: ^1.1.0
+  iconsax: ^0.0.8
+  lottie: ^2.6.0
+  path_provider: ^2.1.0
+  # power_file_viewer_v2: ^1.0.1
+  provider: ^6.0.5
+  rename: ^2.1.1
+  webview_flutter: ^4.2.3
+  icons_launcher: ^2.1.3
+  webview_flutter_android: ^3.9.3
+  webview_flutter_wkwebview: ^3.7.3
+
+dev_dependencies:
+  flutter_lints: ^2.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
