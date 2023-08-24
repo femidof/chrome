@@ -30,22 +30,51 @@ class _ChromeHomeState extends State<ChromeHome> {
   late final WebViewController _controller;
   final _textController = TextEditingController();
   String _url = defaultUrl;
-  bool isNull = false;
+  bool isNotNull = false;
+  bool _isLoadingComplete = false;
+  bool _isLoading = true;
+  int _loadingProgress = 0;
+  bool _isBottomNavigationBarVisible = true;
 
   void _loadUrl(String url) {
     if (url == "") {
       setState(() {
-        isNull = false;
+        isNotNull = false;
       });
     } else {
       setState(() {
-        isNull = true;
+        isNotNull = true;
       });
       _controller.loadRequest(Uri.parse(url));
     }
   }
 
-  void _handleSubmitted(String url) {
+  String _validateURL(String input) {
+    // Check if the input string is a valid URL
+    Uri uri;
+    try {
+      // Add 'http://' as a default scheme if missing
+      if (!input.startsWith('http://') && !input.startsWith('https://')) {
+        input = 'http://$input';
+      }
+      uri = Uri.parse(input);
+    } catch (e) {
+      // Invalid URL, treat it as a search query
+      return 'https://www.google.com/search?q=${Uri.encodeQueryComponent(input)}';
+    }
+
+    // Check if the URL has a scheme (http/https)
+    if (uri.scheme == 'http' || uri.scheme == 'https') {
+      return uri.toString();
+    }
+
+    // Invalid URL with an unsupported scheme, treat it as a search query
+    return 'https://www.google.com/search?q=${Uri.encodeQueryComponent(input)}';
+  }
+
+  void _handleSubmitted(String urlString) {
+    String url = _validateURL(urlString.trim());
+    _textController.text = url;
     setState(() {
       _url = url;
     });
@@ -71,12 +100,22 @@ class _ChromeHomeState extends State<ChromeHome> {
       ..setBackgroundColor(Colors.white)
       ..setNavigationDelegate(NavigationDelegate(
         onProgress: (int progress) {
+          setState(() {
+            _loadingProgress = progress;
+          });
           debugPrint("Loading: $progress%");
         },
         onPageStarted: (String url) {
+          setState(() {
+            _isLoading = true;
+          });
           debugPrint("Page started loading: $url");
         },
         onPageFinished: (String url) {
+          setState(() {
+            _isLoading = false;
+            _isLoadingComplete = true;
+          });
           debugPrint("Page finished loading: $url");
         },
         onWebResourceError: (WebResourceError error) {
@@ -127,145 +166,168 @@ class _ChromeHomeState extends State<ChromeHome> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: true,
-      backgroundColor: Colors.white,
-      appBar: isNull == false
-          ? null
-          : AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              toolbarHeight: 30,
-              centerTitle: true,
-              flexibleSpace: Container(
-                padding: const EdgeInsets.only(left: 10, top: 40),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    NavigationControls(webViewController: _controller),
-                  ],
-                ),
-              ),
-            ),
-      bottomNavigationBar: isNull == false
-          ? Container()
-          : FadeInUp(
-              child: Hero(
-                  tag: "tag",
-                  child: ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(40),
-                        topRight: Radius.circular(40),
-                      ),
-                      child: Container(
-                          color: Colors.white,
-                          height: 90,
-                          width: MediaQuery.of(context).size.width,
-                          padding: const EdgeInsets.all(23),
-                          child: TextField(
-                              keyboardAppearance:
-                                  MediaQuery.of(context).platformBrightness ==
-                                          Brightness.dark
-                                      ? Brightness.dark
-                                      : Brightness.light,
-                              style: const TextStyle(color: Colors.black),
-                              controller: _textController,
-                              onSubmitted: (String value) async {
-                                if (value.isEmpty) {
-                                  setState(() {
-                                    isNull = true;
-                                  });
-                                }
-                                _handleSubmitted(value);
-                              },
-                              decoration: InputDecoration(
-                                prefixIcon: const Icon(
-                                  Iconsax.search_normal,
-                                  size: 18,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderSide: const BorderSide(
-                                      color: Color.fromARGB(255, 213, 213, 213),
-                                      width: 0.7),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(
-                                        color: Color.fromARGB(
-                                          255,
-                                          213,
-                                          213,
-                                          213,
-                                        ),
-                                        width: 0.7),
-                                    borderRadius: BorderRadius.circular(10.0)),
-                                fillColor:
-                                    const Color.fromARGB(255, 213, 213, 213),
-                                filled: true,
-                                contentPadding:
-                                    const EdgeInsets.only(left: 15, top: 5),
-                                alignLabelWithHint: true,
-                                suffixIcon: GestureDetector(
-                                  onTap: () async {
-                                    final String? url =
-                                        await _controller.currentUrl();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Favorited $url')),
-                                    );
-                                  },
-                                  child: const Icon(
-                                    Iconsax.heart_add,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                                hintText: "Search on Address",
-                                hintStyle: const TextStyle(
-                                    color: Color.fromARGB(255, 118, 118, 118),
-                                    fontFamily: "arial"),
-                              ))))),
-            ),
-      body: isNull == false
-          ? Stack(
-              children: [
-                SizedBox(
-                  height: MediaQuery.of(context).size.height,
-                  width: MediaQuery.of(context).size.width,
-                  child: Image.asset(
-                    "assets/background.jpg",
-                    fit: BoxFit.cover,
-                    filterQuality: FilterQuality.high,
-                    alignment: Alignment.bottomRight,
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is ScrollNotification) {
+          setState(() {
+            _isBottomNavigationBarVisible = false;
+          });
+        } else if (notification is ScrollNotification ||
+            notification is OverscrollNotification) {
+          setState(() {
+            _isBottomNavigationBarVisible = true;
+          });
+        }
+        return false;
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        extendBody: true,
+        backgroundColor: Colors.white,
+        appBar: isNotNull == false
+            ? null
+            : AppBar(
+                backgroundColor: Colors.white,
+                elevation: 0,
+                toolbarHeight: 30,
+                centerTitle: true,
+                flexibleSpace: Container(
+                  padding: const EdgeInsets.only(left: 10, top: 40),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      NavigationControls(webViewController: _controller),
+                    ],
                   ),
                 ),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    FadeInDown(
+              ),
+        bottomNavigationBar: _isBottomNavigationBarVisible
+            ? isNotNull == false
+                ? Container()
+                : FadeInUp(
+                    child: Hero(
+                        tag: "tag",
                         child: ClipRRect(
-                            borderRadius: BorderRadius.circular(30),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(40),
+                              topRight: Radius.circular(40),
+                            ),
                             child: Container(
-                                height: 100,
-                                width: 100,
-                                padding: const EdgeInsets.all(10),
                                 color: Colors.white,
-                                child: Image.asset(
-                                  "assets/chrome-logo.png",
+                                height: 90,
+                                width: MediaQuery.of(context).size.width,
+                                padding: const EdgeInsets.all(23),
+                                child: TextField(
+                                    keyboardAppearance: MediaQuery.of(context)
+                                                .platformBrightness ==
+                                            Brightness.dark
+                                        ? Brightness.dark
+                                        : Brightness.light,
+                                    style: const TextStyle(color: Colors.black),
+                                    controller: _textController,
+                                    onSubmitted: (String value) async {
+                                      if (value.isEmpty) {
+                                        setState(() {
+                                          isNotNull = true;
+                                        });
+                                      }
+                                      _handleSubmitted(value);
+                                    },
+                                    decoration: InputDecoration(
+                                      prefixIcon: const Icon(
+                                        Iconsax.search_normal,
+                                        size: 18,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                            color: Color.fromARGB(
+                                                255, 213, 213, 213),
+                                            width: 0.7),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                          borderSide: const BorderSide(
+                                              color: Color.fromARGB(
+                                                255,
+                                                213,
+                                                213,
+                                                213,
+                                              ),
+                                              width: 0.7),
+                                          borderRadius:
+                                              BorderRadius.circular(10.0)),
+                                      fillColor: const Color.fromARGB(
+                                          255, 213, 213, 213),
+                                      filled: true,
+                                      contentPadding: const EdgeInsets.only(
+                                          left: 15, top: 5),
+                                      alignLabelWithHint: true,
+                                      suffixIcon: GestureDetector(
+                                        onTap: () async {
+                                          final String? url =
+                                              await _controller.currentUrl();
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                                content:
+                                                    Text('Favorited $url')),
+                                          );
+                                        },
+                                        child: const Icon(
+                                          Iconsax.heart_add,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      hintText: "Search on Address",
+                                      hintStyle: const TextStyle(
+                                          color: Color.fromARGB(
+                                              255, 118, 118, 118),
+                                          fontFamily: "arial"),
+                                    ))))),
+                  )
+            : null,
+        body: isNotNull == false
+            ? Stack(
+                children: [
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height,
+                    width: MediaQuery.of(context).size.width,
+                    child: Image.asset(
+                      "assets/background.jpg",
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                      alignment: Alignment.bottomRight,
+                    ),
+                  ),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      FadeInDown(
+                          child: ClipRRect(
+                              borderRadius: BorderRadius.circular(30),
+                              child: Container(
                                   height: 100,
-                                )))),
-                    Container(
-                      height: 20,
-                    ),
-                    FadeInDown(
-                        child: const Text(
-                      "Chrome",
-                      style:
-                          TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                    )),
-                    Container(
-                      height: 20,
-                    ),
-                    FadeIn(
-                      child: Hero(
+                                  width: 100,
+                                  padding: const EdgeInsets.all(10),
+                                  color: Colors.white,
+                                  child: Image.asset(
+                                    "assets/chrome-logo.png",
+                                    height: 100,
+                                  )))),
+                      Container(
+                        height: 20,
+                      ),
+                      FadeInDown(
+                          child: const Text(
+                        "Chrome",
+                        style: TextStyle(
+                            fontSize: 40, fontWeight: FontWeight.bold),
+                      )),
+                      Container(
+                        height: 20,
+                      ),
+                      FadeIn(
+                        child: Hero(
                           tag: "tag",
                           child: ClipRRect(
                               borderRadius: const BorderRadius.only(
@@ -288,7 +350,7 @@ class _ChromeHomeState extends State<ChromeHome> {
                                       onSubmitted: (val) async {
                                         if (val.isEmpty) {
                                           setState(() {
-                                            isNull = true;
+                                            isNotNull = true;
                                           });
                                         }
                                         _handleSubmitted(val);
@@ -325,13 +387,37 @@ class _ChromeHomeState extends State<ChromeHome> {
                                             color: Color.fromARGB(
                                                 255, 118, 118, 118),
                                             fontFamily: "arial"),
-                                      ))))),
-                    ),
-                  ],
-                ),
-              ],
-            )
-          : WebViewWidget(controller: _controller),
+                                      )))),
+                        ),
+                      ),
+                      _isLoadingComplete
+                          ? ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  isNotNull = !isNotNull;
+                                });
+                              },
+                              child: const Text(
+                                "Load Google",
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 20),
+                              ),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircularProgressIndicator(
+                                    value: _loadingProgress / 100),
+                                const SizedBox(height: 16),
+                                Text('Loading: $_loadingProgress%'),
+                              ],
+                            ),
+                    ],
+                  ),
+                ],
+              )
+            : WebViewWidget(controller: _controller),
+      ),
     );
   }
 }
