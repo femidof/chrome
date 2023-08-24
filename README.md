@@ -12,10 +12,7 @@ The project aims to revisiting the Chrome browser and google search engine, and 
 
 ## Screenshots
 
-<img height="250" src="screenshots/screen.png?raw=true"/>
-<img height="250" src="screenshots/screen0.png?raw=true"/>
-<img height="250" src="screenshots/screen1.png?raw=true"/>
-<img height="250" src="screenshots/screen2.png?raw=true"/>
+<img height="250" src="screenshots/screen.png?raw=true"/> <img height="250" src="screenshots/screen0.png?raw=true"/> <img height="250" src="screenshots/screen1.png?raw=true"/> <img height="250" src="screenshots/screen2.png?raw=true"/>
 
 ## Usage
 
